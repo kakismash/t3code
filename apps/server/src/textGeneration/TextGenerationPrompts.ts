@@ -271,3 +271,35 @@ export function buildThreadTitlePrompt(input: ThreadTitlePromptInput) {
 
   return { prompt, outputSchema };
 }
+
+// ---------------------------------------------------------------------------
+// Next prompt suggestion
+// ---------------------------------------------------------------------------
+
+export interface NextPromptSuggestionPromptInput {
+  message: string;
+  policy?: TextGenerationPolicy | undefined;
+}
+
+export function buildNextPromptSuggestionPrompt(input: NextPromptSuggestionPromptInput) {
+  const prompt = buildPromptFromMessage({
+    instruction:
+      "You propose the user's single best next prompt for a coding conversation, based on where the work left off.",
+    responseShape: "Return a JSON object with key: suggestion.",
+    rules: [
+      "Write the prompt in the user's voice, addressed to the coding agent (imperative).",
+      "Base it on the assistant's own closing recommendations or the most natural next step.",
+      "One or two sentences, concrete and immediately actionable.",
+      "No quotes, no markdown, no preamble.",
+      "If there is no meaningful next step, return an empty string.",
+    ],
+    message: input.message,
+    messageLabel: "Thread contents",
+    preserveMessageEnd: true,
+  });
+  const outputSchema = Schema.Struct({
+    suggestion: Schema.String,
+  });
+
+  return { prompt, outputSchema };
+}

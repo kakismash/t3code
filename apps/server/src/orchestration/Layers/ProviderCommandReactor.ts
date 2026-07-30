@@ -95,7 +95,7 @@ const MAX_REGENERATION_ATTACHMENTS = 4;
 const MAX_THREAD_TITLE_CONTEXT_CHARS = 8_000;
 const THREAD_TITLE_CONTEXT_TRUNCATION_MARKER = "[Earlier content truncated]\n\n";
 
-function formatThreadTitleContext(
+export function formatThreadTitleContext(
   messages: ReadonlyArray<{
     readonly role: "user" | "assistant" | "system";
     readonly text: string;

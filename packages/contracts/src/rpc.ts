@@ -59,6 +59,8 @@ import {
   OrchestrationGetSnapshotError,
   OrchestrationSearchThreadsError,
   OrchestrationSearchThreadsInput,
+  OrchestrationSuggestNextPromptError,
+  OrchestrationSuggestNextPromptInput,
   OrchestrationGetTurnDiffError,
   OrchestrationGetTurnDiffInput,
   OrchestrationRpcSchemas,
@@ -708,6 +710,15 @@ export const WsOrchestrationSearchThreadsRpc = Rpc.make(ORCHESTRATION_WS_METHODS
   error: Schema.Union([OrchestrationSearchThreadsError, EnvironmentAuthorizationError]),
 });
 
+export const WsOrchestrationSuggestNextPromptRpc = Rpc.make(
+  ORCHESTRATION_WS_METHODS.suggestNextPrompt,
+  {
+    payload: OrchestrationSuggestNextPromptInput,
+    success: OrchestrationRpcSchemas.suggestNextPrompt.output,
+    error: Schema.Union([OrchestrationSuggestNextPromptError, EnvironmentAuthorizationError]),
+  },
+);
+
 export const WsOrchestrationGetArchivedShellSnapshotRpc = Rpc.make(
   ORCHESTRATION_WS_METHODS.getArchivedShellSnapshot,
   {
@@ -860,6 +871,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsOrchestrationGetTurnDiffRpc,
   WsOrchestrationGetFullThreadDiffRpc,
   WsOrchestrationSearchThreadsRpc,
+  WsOrchestrationSuggestNextPromptRpc,
   WsOrchestrationGetArchivedShellSnapshotRpc,
   WsOrchestrationSubscribeShellRpc,
   WsOrchestrationSubscribeThreadRpc,

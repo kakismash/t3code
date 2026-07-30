@@ -29,6 +29,7 @@ import {
   OrchestrationGetFullThreadDiffError,
   OrchestrationGetSnapshotError,
   OrchestrationSearchThreadsError,
+  OrchestrationSuggestNextPromptError,
   OrchestrationGetTurnDiffError,
   ORCHESTRATION_WS_METHODS,
   type ProjectId,
@@ -95,6 +96,8 @@ import * as WorkspacePaths from "./workspace/WorkspacePaths.ts";
 import * as VcsStatusBroadcaster from "./vcs/VcsStatusBroadcaster.ts";
 import * as VcsProvisioningService from "./vcs/VcsProvisioningService.ts";
 import * as GitWorkflowService from "./git/GitWorkflowService.ts";
+import { formatThreadTitleContext } from "./orchestration/Layers/ProviderCommandReactor.ts";
+import * as TextGeneration from "./textGeneration/TextGeneration.ts";
 import * as ReviewService from "./review/ReviewService.ts";
 import * as ProjectSetupScriptRunner from "./project/ProjectSetupScriptRunner.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
@@ -364,6 +367,7 @@ const makeWsRpcLayer = (
       const config = yield* ServerConfig.ServerConfig;
       const lifecycleEvents = yield* ServerLifecycleEvents.ServerLifecycleEvents;
       const serverSettings = yield* ServerSettings.ServerSettingsService;
+      const textGeneration = yield* TextGeneration.TextGeneration;
       const startup = yield* ServerRuntimeStartup.ServerRuntimeStartup;
       const workspaceEntries = yield* WorkspaceEntries.WorkspaceEntries;
       const workspaceFileSystem = yield* WorkspaceFileSystem.WorkspaceFileSystem;
@@ -1113,6 +1117,42 @@ const makeWsRpcLayer = (
                 (cause) =>
                   new OrchestrationSearchThreadsError({
                     message: "Failed to search threads",
+                    cause,
+                  }),
+              ),
+            ),
+            { "rpc.aggregate": "orchestration" },
+          ),
+        [ORCHESTRATION_WS_METHODS.suggestNextPrompt]: (input) =>
+          observeRpcEffect(
+            ORCHESTRATION_WS_METHODS.suggestNextPrompt,
+            Effect.gen(function* () {
+              const thread = Option.getOrUndefined(
+                yield* projectionSnapshotQuery.getThreadDetailById(input.threadId),
+              );
+              if (!thread) {
+                return { suggestion: null };
+              }
+              const project = Option.getOrUndefined(
+                yield* projectionSnapshotQuery.getProjectShellById(thread.projectId),
+              );
+              const cwd = thread.worktreePath ?? project?.workspaceRoot;
+              const context = formatThreadTitleContext(thread.messages);
+              if (cwd === undefined || context.message.trim().length === 0) {
+                return { suggestion: null };
+              }
+              const { textGenerationModelSelection } = yield* serverSettings.getSettings;
+              const generated = yield* textGeneration.generateNextPromptSuggestion({
+                cwd,
+                message: context.message,
+                modelSelection: textGenerationModelSelection,
+              });
+              return { suggestion: generated.suggestion };
+            }).pipe(
+              Effect.mapError(
+                (cause) =>
+                  new OrchestrationSuggestNextPromptError({
+                    message: "Failed to generate a next-prompt suggestion",
                     cause,
                   }),
               ),

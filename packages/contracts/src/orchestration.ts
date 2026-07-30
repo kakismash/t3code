@@ -28,6 +28,7 @@ export const ORCHESTRATION_WS_METHODS = {
   getTurnDiff: "orchestration.getTurnDiff",
   getFullThreadDiff: "orchestration.getFullThreadDiff",
   searchThreads: "orchestration.searchThreads",
+  suggestNextPrompt: "orchestration.suggestNextPrompt",
   getArchivedShellSnapshot: "orchestration.getArchivedShellSnapshot",
   subscribeShell: "orchestration.subscribeShell",
   subscribeThread: "orchestration.subscribeThread",
@@ -1421,6 +1422,17 @@ export const OrchestrationSearchThreadsResult = Schema.Struct({
 });
 export type OrchestrationSearchThreadsResult = typeof OrchestrationSearchThreadsResult.Type;
 
+export const OrchestrationSuggestNextPromptInput = Schema.Struct({
+  threadId: ThreadId,
+});
+export type OrchestrationSuggestNextPromptInput = typeof OrchestrationSuggestNextPromptInput.Type;
+
+export const OrchestrationSuggestNextPromptResult = Schema.Struct({
+  /** Null when the thread has no meaningful next step to suggest. */
+  suggestion: Schema.NullOr(Schema.String.check(Schema.isMaxLength(400))),
+});
+export type OrchestrationSuggestNextPromptResult = typeof OrchestrationSuggestNextPromptResult.Type;
+
 export const OrchestrationRpcSchemas = {
   dispatchCommand: {
     input: ClientOrchestrationCommand,
@@ -1437,6 +1449,10 @@ export const OrchestrationRpcSchemas = {
   searchThreads: {
     input: OrchestrationSearchThreadsInput,
     output: OrchestrationSearchThreadsResult,
+  },
+  suggestNextPrompt: {
+    input: OrchestrationSuggestNextPromptInput,
+    output: OrchestrationSuggestNextPromptResult,
   },
   getArchivedShellSnapshot: {
     input: Schema.Struct({}),
@@ -1486,6 +1502,14 @@ export class OrchestrationGetFullThreadDiffError extends Schema.TaggedErrorClass
 
 export class OrchestrationSearchThreadsError extends Schema.TaggedErrorClass<OrchestrationSearchThreadsError>()(
   "OrchestrationSearchThreadsError",
+  {
+    message: TrimmedNonEmptyString,
+    cause: Schema.optional(Schema.Defect()),
+  },
+) {}
+
+export class OrchestrationSuggestNextPromptError extends Schema.TaggedErrorClass<OrchestrationSuggestNextPromptError>()(
+  "OrchestrationSuggestNextPromptError",
   {
     message: TrimmedNonEmptyString,
     cause: Schema.optional(Schema.Defect()),

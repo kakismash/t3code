@@ -92,6 +92,7 @@ import { CompactComposerControlsMenu } from "./CompactComposerControlsMenu";
 import { ComposerPrimaryActions } from "./ComposerPrimaryActions";
 import { ComposerPendingApprovalPanel } from "./ComposerPendingApprovalPanel";
 import { ComposerPendingUserInputPanel } from "./ComposerPendingUserInputPanel";
+import { ComposerNextPromptSuggestion } from "./ComposerNextPromptSuggestion";
 import { ComposerPlanFollowUpBanner } from "./ComposerPlanFollowUpBanner";
 import { ComposerControl, ComposerControlIcon, ComposerSelectControl } from "./ComposerControl";
 import { resolveComposerMenuActiveItemId } from "./composerMenuHighlight";
@@ -550,6 +551,11 @@ export interface ChatComposerProps {
   activePendingQuestionIndex: number;
   respondingRequestIds: ApprovalRequestId[];
 
+  // Suggested next prompt
+  nextPromptSuggestion: string | null;
+  onAcceptNextPromptSuggestion: () => void;
+  onDismissNextPromptSuggestion: () => void;
+
   // Plan
   showPlanFollowUpPrompt: boolean;
   activeProposedPlan: Thread["proposedPlans"][number] | null;
@@ -650,6 +656,9 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     activePendingDraftAnswers,
     activePendingQuestionIndex,
     respondingRequestIds,
+    nextPromptSuggestion,
+    onAcceptNextPromptSuggestion,
+    onDismissNextPromptSuggestion,
     showPlanFollowUpPrompt,
     activeProposedPlan,
     activePlan,
@@ -2735,6 +2744,14 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 <ComposerPlanFollowUpBanner
                   key={activeProposedPlan.id}
                   planTitle={proposedPlanTitle(activeProposedPlan.planMarkdown) ?? null}
+                />
+              </div>
+            ) : nextPromptSuggestion !== null ? (
+              <div className="rounded-t-[19px] border-b border-border/65 bg-muted/20">
+                <ComposerNextPromptSuggestion
+                  suggestion={nextPromptSuggestion}
+                  onAccept={onAcceptNextPromptSuggestion}
+                  onDismiss={onDismissNextPromptSuggestion}
                 />
               </div>
             ) : null)}

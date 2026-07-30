@@ -63,6 +63,21 @@ export function sanitizeThreadTitle(raw: string): string {
   return `${normalized.slice(0, 47).trimEnd()}...`;
 }
 
+/** Normalise a raw next-prompt suggestion to a compact single-line prompt, or null when empty. */
+export function sanitizeNextPromptSuggestion(raw: string): string | null {
+  const normalized = raw.trim().replace(/\s+/g, " ");
+
+  if (normalized.length === 0) {
+    return null;
+  }
+
+  if (normalized.length <= 400) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, 397).trimEnd()}...`;
+}
+
 /** CLI name to human-readable label, e.g. "codex" → "Codex CLI (`codex`)" */
 function cliLabel(cliName: string): string {
   const capitalized = cliName.charAt(0).toUpperCase() + cliName.slice(1);

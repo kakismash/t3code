@@ -199,6 +199,7 @@ import { appendReviewCommentsToPrompt, type ReviewCommentContext } from "../revi
 import { environmentCatalog } from "../connection/catalog";
 import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import { useKnownTerminalSessions, useThreadRunningTerminalIds } from "../state/terminalSessions";
+import { orchestrationEnvironment } from "../state/orchestration";
 import { projectEnvironment } from "../state/projects";
 import { useEnvironmentQuery } from "../state/query";
 import {
@@ -1147,6 +1148,9 @@ function ChatViewContent(props: ChatViewProps) {
   );
   const routeThreadKey = useMemo(() => scopedThreadKey(routeThreadRef), [routeThreadRef]);
   const updateProject = useAtomCommand(projectEnvironment.update, { reportFailure: false });
+  const suggestNextPromptCommand = useAtomCommand(orchestrationEnvironment.suggestNextPrompt, {
+    reportFailure: false,
+  });
   const upsertKeybinding = useAtomCommand(serverEnvironment.upsertKeybinding, {
     reportFailure: false,
   });
@@ -1599,6 +1603,81 @@ function ChatViewContent(props: ChatViewProps) {
     });
   }, [activeThreadKey, existingOpenTerminalThreadKeys, terminalUiState.terminalOpen]);
   const latestTurnSettled = isLatestTurnSettled(activeLatestTurn, activeThread?.session ?? null);
+  const [nextPromptSuggestion, setNextPromptSuggestion] = useState<{
+    threadId: ThreadId;
+    turnId: TurnId;
+    text: string;
+  } | null>(null);
+  const nextPromptRequestedTurnRef = useRef<string | null>(null);
+  useEffect(() => {
+    const turnId = activeLatestTurn?.turnId;
+    if (
+      !latestTurnSettled ||
+      turnId === undefined ||
+      activeLatestTurn?.state !== "completed" ||
+      !isServerThread ||
+      activeThreadId === null ||
+      activeThread === undefined
+    ) {
+      return;
+    }
+    if (nextPromptRequestedTurnRef.current === turnId) {
+      return;
+    }
+    nextPromptRequestedTurnRef.current = turnId;
+    const requestThreadId = activeThreadId;
+    const requestEnvironmentId = activeThread.environmentId;
+    // No cancellation on cleanup: a stale result is filtered out by the
+    // thread/turn match in visibleNextPromptSuggestion below.
+    void suggestNextPromptCommand({
+      environmentId: requestEnvironmentId,
+      input: { threadId: requestThreadId },
+    }).then((result) => {
+      if (result._tag !== "Success" || result.value.suggestion === null) {
+        return;
+      }
+      setNextPromptSuggestion({
+        threadId: requestThreadId,
+        turnId,
+        text: result.value.suggestion,
+      });
+    });
+  }, [
+    activeLatestTurn,
+    activeThread,
+    activeThreadId,
+    isServerThread,
+    latestTurnSettled,
+    suggestNextPromptCommand,
+  ]);
+  // Only surface a suggestion that still matches the visible, settled turn.
+  const visibleNextPromptSuggestion =
+    nextPromptSuggestion !== null &&
+    nextPromptSuggestion.threadId === activeThreadId &&
+    nextPromptSuggestion.turnId === activeLatestTurn?.turnId &&
+    latestTurnSettled
+      ? nextPromptSuggestion.text
+      : null;
+  const handleAcceptNextPromptSuggestion = useCallback(() => {
+    if (nextPromptSuggestion === null) {
+      return;
+    }
+    const existing = promptRef.current;
+    const nextPrompt =
+      existing.length > 0 && !/\s$/.test(existing)
+        ? `${existing} ${nextPromptSuggestion.text}`
+        : `${existing}${nextPromptSuggestion.text}`;
+    promptRef.current = nextPrompt;
+    setComposerDraftPrompt(composerDraftTarget, nextPrompt);
+    setNextPromptSuggestion(null);
+    composerRef.current?.resetCursorState({ cursor: nextPrompt.length, prompt: nextPrompt });
+    window.requestAnimationFrame(() => {
+      composerRef.current?.focusAt(nextPrompt.length);
+    });
+  }, [composerDraftTarget, composerRef, nextPromptSuggestion, setComposerDraftPrompt]);
+  const handleDismissNextPromptSuggestion = useCallback(() => {
+    setNextPromptSuggestion(null);
+  }, []);
   const activeProjectRef = activeThread
     ? scopeProjectRef(activeThread.environmentId, activeThread.projectId)
     : null;
@@ -5923,6 +6002,9 @@ function ChatViewContent(props: ChatViewProps) {
                             activePendingDraftAnswers={activePendingDraftAnswers}
                             activePendingQuestionIndex={activePendingQuestionIndex}
                             respondingRequestIds={respondingRequestIds}
+                            nextPromptSuggestion={visibleNextPromptSuggestion}
+                            onAcceptNextPromptSuggestion={handleAcceptNextPromptSuggestion}
+                            onDismissNextPromptSuggestion={handleDismissNextPromptSuggestion}
                             showPlanFollowUpPrompt={showPlanFollowUpPrompt}
                             activeProposedPlan={activeProposedPlan}
                             activePlan={activePlan as { turnId?: TurnId } | null}

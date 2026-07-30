@@ -73,6 +73,17 @@ export interface ThreadTitleGenerationResult {
   title: string;
 }
 
+export interface NextPromptSuggestionInput {
+  cwd: string;
+  message: string;
+  /** What model and provider to use for generation. */
+  modelSelection: ModelSelection;
+}
+
+export interface NextPromptSuggestionResult {
+  suggestion: string | null;
+}
+
 export interface TextGenerationService {
   generateCommitMessage(
     input: CommitMessageGenerationInput,
@@ -80,6 +91,9 @@ export interface TextGenerationService {
   generatePrContent(input: PrContentGenerationInput): Promise<PrContentGenerationResult>;
   generateBranchName(input: BranchNameGenerationInput): Promise<BranchNameGenerationResult>;
   generateThreadTitle(input: ThreadTitleGenerationInput): Promise<ThreadTitleGenerationResult>;
+  generateNextPromptSuggestion(
+    input: NextPromptSuggestionInput,
+  ): Promise<NextPromptSuggestionResult>;
 }
 
 /**
@@ -113,6 +127,11 @@ export class TextGeneration extends Context.Service<
     readonly generateThreadTitle: (
       input: ThreadTitleGenerationInput,
     ) => Effect.Effect<ThreadTitleGenerationResult, TextGenerationError>;
+
+    /** Propose a follow-up prompt from recent thread history after a turn completes. */
+    readonly generateNextPromptSuggestion: (
+      input: NextPromptSuggestionInput,
+    ) => Effect.Effect<NextPromptSuggestionResult, TextGenerationError>;
   }
 >()("t3/textGeneration/TextGeneration") {}
 
@@ -123,7 +142,8 @@ type TextGenerationOp =
   | "generateCommitMessage"
   | "generatePrContent"
   | "generateBranchName"
-  | "generateThreadTitle";
+  | "generateThreadTitle"
+  | "generateNextPromptSuggestion";
 
 const resolveInstance = (
   registry: ProviderInstanceRegistry.ProviderInstanceRegistry["Service"],
@@ -162,6 +182,14 @@ export const makeTextGenerationFromRegistry = (
     generateThreadTitle: (input) =>
       resolveInstance(registry, "generateThreadTitle", input.modelSelection.instanceId).pipe(
         Effect.flatMap((textGeneration) => textGeneration.generateThreadTitle(input)),
+      ),
+    generateNextPromptSuggestion: (input) =>
+      resolveInstance(
+        registry,
+        "generateNextPromptSuggestion",
+        input.modelSelection.instanceId,
+      ).pipe(
+        Effect.flatMap((textGeneration) => textGeneration.generateNextPromptSuggestion(input)),
       ),
   });
 
